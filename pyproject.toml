@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "awsnav"
+version = "0.1.0"
+description = "Terminal UI for navigating every AWS service (EC2, S3, Bedrock, and newly released ones) with an access key and secret"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "boto3>=1.35",
+    "textual>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "moto[all]>=5"]
+
+[project.scripts]
+awsnav = "awsnav.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["awsnav*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
