@@ -82,9 +82,15 @@ class BaseScreen(Screen):
             crumbs = self.query_one(Crumbs)
         except Exception:  # noqa: BLE001
             return
+        crumbs.update(f"[b]{self.display_region()}[/b] › {self.crumbs_text()}")
+
+    def display_region(self) -> str:
+        """Region this screen works in: its own pinned region, else the app's current one."""
+        pinned = getattr(self, "pinned_region", None)
+        if pinned:
+            return pinned
         ctx = getattr(self.app, "ctx", None)
-        region = ctx.region if ctx else "-"
-        crumbs.update(f"[b]{region}[/b] › {self.crumbs_text()}")
+        return ctx.region if ctx else "-"
 
     def on_screen_resume(self) -> None:
         self.refresh_crumbs()
@@ -150,6 +156,17 @@ class TableScreen(BaseScreen):
         if not self.focus_filter_first and not flt.value and self.focused in (None, flt):
             # The loading overlay makes the table unfocusable; give focus back once data is in.
             self.table.focus()
+
+    def append_rows(self, rows: list[tuple[list[Any], str, Any]]) -> None:
+        """Add rows without redrawing the table (used while a scan streams results)."""
+        flt = self.query_one("#filter", Input).value.strip().lower().split()
+        table = self.table
+        start = len(self._rows)
+        for offset, (cells, search, payload) in enumerate(rows):
+            key = str(start + offset)
+            self._rows.append((key, cells, search.lower(), payload))
+            if all(t in search.lower() for t in flt):
+                table.add_row(*(Text(str(c)) for c in cells), key=key)
 
     def _render_rows(self) -> None:
         table = self.table
@@ -419,6 +436,7 @@ HELP_TEXT = """\
 [b]Everywhere[/b]
   Ctrl+G        change region
   Ctrl+B        Bedrock chat playground (Converse API)
+  F2            scan all / selected regions for every active resource
   F1 / ?        this help
   Ctrl+Q        quit
 
@@ -437,6 +455,12 @@ HELP_TEXT = """\
   x             run any operation prefilled from this resource
   y             copy JSON        w   save JSON to a file
   r             reload (when the data came from a Get/Describe call)
+
+[b]Scan results[/b]
+  Enter         details of the resource (calls run in that resource's region)
+  s             summary by region and type     E   failed calls (permissions etc.)
+  w             export to .json or .csv        r   scan again
+  Esc           stop a running scan, then go back
 
 [b]Operation runner[/b]
   Ctrl+R / F5   run.  Parameters are JSON, as in the AWS API reference.

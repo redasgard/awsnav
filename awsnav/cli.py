@@ -27,6 +27,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="allow Create/Update/Delete/… operations from the operation runner (each one is confirmed)",
     )
     p.add_argument("--no-login", action="store_true", help="connect immediately without showing the login form")
+    scan = p.add_argument_group("headless scan (no UI)")
+    scan.add_argument("--scan", action="store_true", help="scan regions for active resources, print or save the result, and exit")
+    scan.add_argument(
+        "--scan-regions",
+        default="all",
+        help="'all' (every region enabled for the account), 'current', or a comma-separated list (default: all)",
+    )
+    scan.add_argument("--deep", action="store_true", help="also call every List/Describe operation of every service (slow)")
+    scan.add_argument("--services", help="only scan these services, comma-separated, wildcards allowed (e.g. 'ec2,bedrock*')")
+    scan.add_argument("--no-global", action="store_true", help="skip global services (IAM, S3, Route 53, CloudFront)")
+    scan.add_argument("--no-tagged", action="store_true", help="skip the Resource Groups Tagging API pass")
+    scan.add_argument("--workers", type=int, default=16, help="parallel API calls (default 16)")
+    scan.add_argument("--output", "-o", help="write results to a .json or .csv file instead of printing a table")
     p.add_argument("--version", action="version", version=f"awsnav {__version__}")
     return p
 
@@ -56,9 +69,66 @@ def settings_from_args(args: argparse.Namespace, env: dict[str, str] | None = No
     return settings, auto
 
 
+def run_scan(args: argparse.Namespace, settings: ConnectionSettings) -> int:
+    """Headless scan; returns the process exit code."""
+    import sys
+
+    from awsnav.scanner import Scanner, enabled_regions, format_table
+    from awsnav.session import AwsContext
+
+    ctx = AwsContext(settings)
+    try:
+        ident = ctx.verify()
+    except Exception as exc:  # noqa: BLE001
+        print(f"awsnav: cannot verify credentials: {exc}", file=sys.stderr)
+        return 2
+    if args.scan_regions == "all":
+        regions = enabled_regions(ctx)
+    elif args.scan_regions == "current":
+        regions = [ctx.region]
+    else:
+        regions = [r.strip() for r in args.scan_regions.split(",") if r.strip()]
+    scanner = Scanner(
+        ctx,
+        regions,
+        deep=args.deep,
+        include_global=not args.no_global,
+        include_tagged=not args.no_tagged,
+        services=(args.services or "").split(","),
+        workers=max(1, min(args.workers, 64)),
+    )
+    print(f"Scanning account {ident.get('Account')} in {len(regions)} region(s)…", file=sys.stderr)
+    interactive = sys.stderr.isatty()
+
+    def progress(done: int, total: int, _found, _errors) -> None:
+        if interactive:
+            print(f"\r  {done}/{total} calls", end="", file=sys.stderr, flush=True)
+
+    try:
+        result = scanner.run(progress)
+    except KeyboardInterrupt:
+        scanner.cancel()
+        return 130
+    if interactive:
+        print(file=sys.stderr)
+    if args.output:
+        text = result.to_csv() if args.output.lower().endswith(".csv") else result.to_json()
+        with open(args.output, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+    else:
+        print(format_table(result))
+    s = result.summary()
+    errors = ", ".join(f"{v} {k}" for k, v in s["errors"].items()) or "none"
+    where = f" -> {args.output}" if args.output else ""
+    print(f"{s['resources']} resources, {s['calls']} calls in {s['seconds']}s, failed calls: {errors}{where}", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     settings, auto = settings_from_args(args)
+    if args.scan:
+        raise SystemExit(run_scan(args, settings))
     from awsnav.ui.app import AwsNavApp
 
     AwsNavApp(settings, auto_connect=auto).run()

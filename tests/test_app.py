@@ -28,7 +28,12 @@ def make_app(**kw):
 
 
 async def connected(pilot):
-    await wait_for(pilot, lambda: isinstance(pilot.app.screen, ServicesScreen), timeout=45)
+    # Wait until the screen is composed, not merely pushed.
+    await wait_for(
+        pilot,
+        lambda: isinstance(pilot.app.screen, ServicesScreen) and pilot.app.screen.query("TopBar") and pilot.app.screen.table.row_count,
+        timeout=45,
+    )
 
 
 async def test_login_form_validates_and_connects(aws):
@@ -256,3 +261,49 @@ async def test_command_palette_provider_lists_services(aws):
         await wait_for(pilot, lambda: isinstance(app.screen, OperationsScreen))
         assert app.screen.service.startswith("bedrock-agent")
     assert ServiceCommands
+
+
+async def test_scan_ui_finds_resources_and_drills_down_in_their_region(aws):
+    from awsnav.ui.scan import ScanResultsScreen, ScanSetupScreen
+
+    boto3.client("sqs", region_name="eu-west-1").create_queue(QueueName="far-away")
+    boto3.client("sqs", region_name="us-east-1").create_queue(QueueName="nearby")
+    app = make_app()
+    async with app.run_test(size=SIZE) as pilot:
+        await connected(pilot)
+        await pilot.press("f2")
+        await wait_for(pilot, lambda: isinstance(app.screen, ScanSetupScreen))
+        setup = app.screen
+        await wait_for(pilot, lambda: setup.query_one("#regions").option_count > 0)
+        regions = setup.query_one("#regions")
+        assert list(regions.selected) == ["us-east-1"]  # current region preselected
+        regions.select("eu-west-1")
+        setup.query_one("#services").value = "sqs"
+        setup.query_one("#global").value = False
+        await wait_for(pilot, lambda: "API calls" in str(setup.query_one("#estimate").render()))
+        await pilot.press("ctrl+r")
+        await wait_for(pilot, lambda: isinstance(app.screen, ScanResultsScreen) and app.screen.result is not None)
+        results = app.screen
+        names = sorted((r.region, r.name) for r in results.result.resources)
+        assert names == [("eu-west-1", "far-away"), ("us-east-1", "nearby")]
+        assert "Done: 2 resources" in str(results.status.render())
+
+        # Open the eu-west-1 queue: follow-up calls must go to eu-west-1 although the app is in us-east-1.
+        results.query_one("#filter").value = "far-away"
+        await pilot.pause(0.1)
+        results.table.focus()
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, DetailScreen) and app.screen._actions)
+        assert "eu-west-1" in str(app.screen.query_one("Crumbs").render())
+        ops = [getattr(a, "operation", None) for a in app.screen._actions.values()]
+        app.screen.query_one("#actions").highlighted = ops.index("GetQueueAttributes")
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, DetailScreen) and app.screen.title_text == "GetQueueAttributes")
+        assert app.screen.ctx.region == "eu-west-1"
+        assert app.ctx.region == "us-east-1"
+        for _ in range(2):
+            await pilot.press("escape")
+        await wait_for(pilot, lambda: isinstance(app.screen, ScanResultsScreen))
+        await pilot.press("s")
+        await wait_for(pilot, lambda: isinstance(app.screen, TextViewer))
+        assert "eu-west-1" in app.screen._text()

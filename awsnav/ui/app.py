@@ -51,6 +51,15 @@ ModalScreen { align: center middle; }
 .chat-msg { margin-bottom: 1; }
 .chat-user { color: $accent; }
 .chat-error { color: $error; }
+#scan-setup { height: 1fr; }
+#scan-regions { width: 38; }
+#scan-regions .buttons Button { width: auto; min-width: 7; margin-right: 1; }
+#regions { height: 1fr; border: round $primary 40%; }
+#scan-options { width: 1fr; padding: 0 2; }
+#scan-options Label { margin-top: 1; }
+#scan-options RadioSet { width: 100%; }
+#scan-options #start { margin-top: 1; }
+#progress { height: 1; padding: 0 1; }
 """
 
 
@@ -63,6 +72,9 @@ class ServiceCommands(Provider):
         if ctx is None:
             return
         matcher = self.matcher(query)
+        scan_label = "Scan regions for all active resources"
+        if (score := matcher.match(scan_label)) > 0:
+            yield Hit(score, matcher.highlight(scan_label), app.action_scan, help="F2")
         names = ctx.catalog.cached_full_names()
         for service in ctx.catalog.ordered_services():
             label = f"{service} — {names.get(service, '')}".rstrip(" —")
@@ -75,6 +87,7 @@ class ServiceCommands(Provider):
         ctx = getattr(app, "ctx", None)
         if ctx is None:
             return
+        yield Hit(2, "Scan regions for all active resources", app.action_scan, help="F2")
         for service in ctx.catalog.ordered_services()[:20]:
             yield Hit(1, service, partial(app.open_service, service), help="Open service")
 
@@ -86,6 +99,7 @@ class AwsNavApp(App):
     BINDINGS = [
         Binding("ctrl+g", "change_region", "Region", priority=True),
         Binding("ctrl+b", "bedrock_chat", "Bedrock chat", priority=True),
+        Binding("f2", "scan", "Scan regions"),
         Binding("f1", "help", "Help"),
         Binding("question_mark", "help", "Help", show=False),
         Binding("ctrl+q", "quit", "Quit", priority=True),
@@ -134,7 +148,8 @@ class AwsNavApp(App):
                 return
             prefill = self.ctx.catalog.prefill_for(service, op, item_ctx, item)
             params = self.ctx.catalog.params_template(service, op, prefill)
-            self.push_screen(RunnerScreen(service, op, params, inherited=inherited))
+            region = item_ctx.region if item_ctx else None
+            self.push_screen(RunnerScreen(service, op, params, inherited=inherited, region=region))
 
         if operation:
             chosen(operation)
@@ -167,6 +182,15 @@ class AwsNavApp(App):
                 reload()
 
         self.push_screen(PickerModal("Region (type a custom region and press Enter)", choices, current=self.ctx.region, free_text=True), chosen)
+
+    def action_scan(self) -> None:
+        from awsnav.ui.scan import ScanResultsScreen, ScanSetupScreen
+
+        if self.ctx is None:
+            self.notify("Connect first", severity="warning")
+            return
+        if not isinstance(self.screen, (ScanSetupScreen, ScanResultsScreen)):
+            self.push_screen(ScanSetupScreen())
 
     def action_bedrock_chat(self) -> None:
         from awsnav.ui.bedrock import ChatScreen

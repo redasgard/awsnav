@@ -21,9 +21,10 @@ class ChatScreen(BaseScreen):
         Binding("ctrl+o", "pick_model", "Pick model"),
     ]
 
-    def __init__(self, model_id: str = "") -> None:
+    def __init__(self, model_id: str = "", region: str | None = None) -> None:
         super().__init__()
         self.model_id = model_id
+        self.pinned_region = region
         self.messages: list[dict[str, Any]] = []
         self.total_in = 0
         self.total_out = 0
@@ -83,7 +84,7 @@ class ChatScreen(BaseScreen):
         if system:
             kwargs["system"] = [{"text": system}]
         try:
-            resp = self.app.ctx.client("bedrock-runtime").converse(**kwargs)
+            resp = self.app.ctx.client("bedrock-runtime", self.pinned_region).converse(**kwargs)
         except Exception as exc:  # noqa: BLE001
             self.from_thread(self._failed, error_text(exc))
             return
@@ -139,14 +140,14 @@ class ChatScreen(BaseScreen):
         ctx = self.app.ctx
         errors = []
         try:
-            res = ctx.execute("bedrock", "ListInferenceProfiles")
+            res = ctx.execute("bedrock", "ListInferenceProfiles", region=self.pinned_region)
             for p in res.items or []:
                 name = escape(p.get("inferenceProfileName", ""))
                 choices.append((p["inferenceProfileId"], f"{escape(p['inferenceProfileId'])}  [dim]profile · {name}[/dim]"))
         except Exception as exc:  # noqa: BLE001
             errors.append(error_text(exc))
         try:
-            res = ctx.execute("bedrock", "ListFoundationModels", {"byOutputModality": "TEXT"})
+            res = ctx.execute("bedrock", "ListFoundationModels", {"byOutputModality": "TEXT"}, region=self.pinned_region)
             for m in res.items or []:
                 kinds = ",".join(m.get("inferenceTypesSupported", []))
                 choices.append((m["modelId"], f"{escape(m['modelId'])}  [dim]{escape(m.get('providerName', ''))} · {kinds}[/dim]"))

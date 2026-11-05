@@ -27,13 +27,14 @@ class OperationResult:
     items: list[Any] | None
     items_key: str | None
     truncated: bool = False
+    region: str | None = None
 
     @property
     def is_list(self) -> bool:
         return self.items is not None
 
     def context(self) -> ItemContext:
-        return ItemContext(self.service, self.operation, dict(self.params), self.items_key)
+        return ItemContext(self.service, self.operation, dict(self.params), self.items_key, region=self.region)
 
 
 @dataclass
@@ -101,6 +102,16 @@ class AwsContext:
                 self._clients[key] = client
             return client
 
+    def new_client(self, service: str, region: str):
+        """A fresh, uncached client (used by the multi-region scanner to bound memory)."""
+        with self._lock:  # creating clients from one session is not thread-safe
+            return self.session.client(
+                service,
+                region_name=region,
+                endpoint_url=self.settings.endpoint_url or None,
+                config=self._config,
+            )
+
     def verify(self) -> dict[str, Any]:
         """Check the credentials with STS and remember who we are."""
         ident = self.client("sts").get_caller_identity()
@@ -124,10 +135,22 @@ class AwsContext:
         return f"{self.identity.get('Account', '?')} · {self.identity.get('Arn', '?')}"
 
     # -- execution ----------------------------------------------------
-    def execute(self, service: str, op_name: str, params: dict[str, Any] | None = None, max_items: int | None = None) -> OperationResult:
+    def execute(
+        self,
+        service: str,
+        op_name: str,
+        params: dict[str, Any] | None = None,
+        max_items: int | None = None,
+        region: str | None = None,
+    ) -> OperationResult:
+        """Call ``op_name`` in ``region`` (default: the current region)."""
+        result = self.run_operation(self.client(service, region), service, op_name, params, max_items)
+        result.region = region or self.region
+        return result
+
+    def run_operation(self, client, service: str, op_name: str, params: dict[str, Any] | None = None, max_items: int | None = None) -> OperationResult:
         params = dict(params or {})
         max_items = max_items or self.max_items
-        client = self.client(service)
         py_name = xform_name(op_name)
         truncated = False
         if client.can_paginate(py_name):
@@ -142,7 +165,7 @@ class AwsContext:
         items, key = self.catalog.extract_items(service, op_name, raw)
         if items is not None:
             items = wrap_scalar_items(items, key)
-        return OperationResult(service, op_name, params, raw, items, key, truncated)
+        return OperationResult(service, op_name, params, raw, items, key, truncated, client.meta.region_name)
 
 
 def _materialize_streams(raw: dict[str, Any]) -> None:

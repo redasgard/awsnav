@@ -30,9 +30,39 @@ It takes JSON parameters and shows the call's documentation alongside.
 
 A few hand-made extras sit on top:
 
+- **Multi-region resource scan.** Press F2 to find every active resource in all regions or the ones you pick. Results stream into one table you can filter, open, and export. See the section below.
 - **S3 browser.** Browse buckets as folders, preview an object's first 64 KiB, and download objects.
 - **Bedrock chat playground.** Chat with any text model or inference profile through the Converse API. It is reachable from a model's actions or with Ctrl+B anywhere.
 - **Sensible defaults.** EC2 images and snapshots are limited to your own account, so the list does not load every public AMI.
+
+## Scanning for every active resource
+
+Press **F2**, or choose "Scan regions" in the Ctrl+P palette. Pick the regions; the current one is preselected, and "All" means every region enabled for the account. Then press Ctrl+R. Results appear while the scan runs, and Esc stops it.
+
+The scan combines three sources:
+
+- **Curated inventory.** About 120 resource types across compute, networking, storage, databases, analytics, AI/ML including Bedrock and AgentCore, security, and developer tools. AWS-created defaults and dead resources are left out: the default VPC, its subnets and security groups, AWS-managed KMS aliases, service-linked IAM roles, managed EventBridge rules, terminated instances and deleted stacks.
+- **Tagging API.** The Resource Groups Tagging API reports every tagged resource of any service. It catches resource types the inventory does not list, and duplicates are removed.
+- **Deep mode (optional).** This adds every List and Describe call of every service that needs no parameters, minus catalogue-style calls like instance types or engine versions. It is the closest thing to "everything" but is slow and noisy. Expect about 1,500 calls per region.
+
+Global services such as IAM, Route 53 and CloudFront are scanned once. S3 buckets are placed in their own region. Only read-only calls are made. Calls that fail are listed with `E`, grouped as missing permission, service not offered in that region, or other error. Opening a resource from the results runs every follow-up call in that resource's region, whatever the current region is.
+
+| Key | Action |
+| --- | --- |
+| Enter | details and related operations for the resource |
+| `s` | summary by region and by type |
+| `E` | failed calls |
+| `w` | export to `.json` with full details, or `.csv` as a flat table |
+| `r` | scan again |
+
+The same scan runs without the UI, for scripts and cron jobs:
+
+```bash
+awsnav --scan                                         # all enabled regions, table on stdout
+awsnav --scan --scan-regions us-east-1,eu-west-1 -o inventory.csv
+awsnav --scan --services 'ec2,rds,bedrock*' --no-global -o inventory.json
+awsnav --scan --deep --workers 32 -o everything.json
+```
 
 ## Install
 
@@ -67,6 +97,7 @@ visible to other users of the machine. Credentials are kept in memory only and a
 | `--max-items` | Maximum items fetched per list call. The default is 500. |
 | `--allow-write` | Allow write operations from the runner. Each one is confirmed first. |
 | `--no-login` | Skip the login form and use the default credential chain. |
+| `--scan` | Run a headless resource scan and exit. It is tuned by `--scan-regions`, `--deep`, `--services`, `--no-global`, `--no-tagged`, `--workers` and `-o`. |
 
 ### Read-only by default
 
@@ -88,6 +119,7 @@ The IAM user or role needs read permissions for whatever you browse. The AWS man
 | | Ctrl+P | command palette: jump to any service by name |
 | | Ctrl+G | change region |
 | | Ctrl+B | Bedrock chat playground |
+| | F2 | scan all or selected regions for active resources |
 | | F1 or `?` | help |
 | | Ctrl+Q | quit |
 | service | `a` | toggle between resource types and every API operation |
@@ -114,5 +146,6 @@ Code layout:
 
 - `awsnav/catalog.py` covers service and operation discovery, response parsing and drill-down matching.
 - `awsnav/session.py` covers credentials, clients and running operations.
+- `awsnav/scanner.py` covers the multi-region resource scan and its curated inventory.
 - `awsnav/formatting.py` covers table columns and JSON rendering.
 - `awsnav/ui/` holds the Textual screens.

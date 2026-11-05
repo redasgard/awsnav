@@ -226,6 +226,8 @@ class ItemContext:
     operation: str
     params: dict[str, Any] = field(default_factory=dict)
     items_key: str | None = None
+    # Region the item lives in; ``None`` means "whatever region is current".
+    region: str | None = None
 
     def nouns(self) -> set[str]:
         """Lower-case nouns that describe the item (``bucket``, ``model``...)."""

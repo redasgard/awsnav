@@ -37,7 +37,12 @@ def custom_actions(ctx: ItemContext, item: Any) -> list[CustomAction]:
         if model:
             from awsnav.ui.bedrock import ChatScreen
 
-            actions.append(CustomAction(f"Chat with {model} (Converse)", lambda s, m=model: s.app.push_screen(ChatScreen(m))))
+            actions.append(
+                CustomAction(
+                    f"Chat with {model} (Converse)",
+                    lambda s, m=model, r=ctx.region: s.app.push_screen(ChatScreen(m, region=r)),
+                )
+            )
 
     return actions
 

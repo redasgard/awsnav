@@ -144,7 +144,7 @@ class ServicesScreen(TableScreen):
         self.set_rows(["", "Service", "Name"], rows)
 
     def on_rows_rendered(self, shown: int, total: int) -> None:
-        self.status.ok(f"{shown} of {total} services · Enter to open · Ctrl+P to jump · F1 help")
+        self.status.ok(f"{shown} of {total} services · Enter to open · F2 scan regions · Ctrl+P to jump · F1 help")
 
     @work(thread=True, exclusive=True, exit_on_error=False)
     def _load_names(self) -> None:
@@ -238,6 +238,7 @@ class ResultScreen(TableScreen):
         *,
         inherited: dict[str, Any] | None = None,
         result: OperationResult | None = None,
+        region: str | None = None,
     ) -> None:
         super().__init__()
         self.service = service
@@ -245,6 +246,8 @@ class ResultScreen(TableScreen):
         self.params = dict(params or {})
         self.inherited = dict(inherited or {})
         self.result = result
+        # A pinned region (e.g. a resource found by the multi-region scan) ignores Ctrl+G.
+        self.pinned_region = region
 
     def crumbs_text(self) -> str:
         args = ", ".join(f"{k}={format_cell(v)}" for k, v in self.params.items())
@@ -253,7 +256,8 @@ class ResultScreen(TableScreen):
     def item_context(self) -> ItemContext:
         params = {**self.inherited, **self.params}
         key = self.result.items_key if self.result else None
-        return ItemContext(self.service, self.operation, params, key)
+        region = self.pinned_region or (self.result.region if self.result else None)
+        return ItemContext(self.service, self.operation, params, key, region=region)
 
     def on_mount(self) -> None:
         super().on_mount()
@@ -263,7 +267,8 @@ class ResultScreen(TableScreen):
             self.action_reload()
 
     def reload_for_region(self) -> None:
-        self.action_reload()
+        if self.pinned_region is None:
+            self.action_reload()
 
     def action_reload(self) -> None:
         if not is_read_only(self.operation):
@@ -276,7 +281,7 @@ class ResultScreen(TableScreen):
     @work(thread=True, exclusive=True, exit_on_error=False)
     def _load(self) -> None:
         try:
-            result = self.app.ctx.execute(self.service, self.operation, self.params)
+            result = self.app.ctx.execute(self.service, self.operation, self.params, region=self.pinned_region)
         except Exception as exc:  # noqa: BLE001
             self.from_thread(self._failed, error_text(exc))
         else:
@@ -292,6 +297,8 @@ class ResultScreen(TableScreen):
         self.table.loading = False
         if not result.is_list:
             reload = (self.service, self.operation, self.params) if is_read_only(self.operation) else None
+            if self.pinned_region is None and result.region:
+                self.pinned_region = result.region
             self.app.switch_screen(
                 DetailScreen(result.raw, self.item_context(), title=self.operation, reload=reload)
             )
@@ -320,7 +327,9 @@ class ResultScreen(TableScreen):
             self.app.push_screen(TextViewer(f"{self.service} › {self.operation} raw response", self.result.raw))
 
     def action_edit(self) -> None:
-        self.app.push_screen(RunnerScreen(self.service, self.operation, self.params, inherited=self.inherited))
+        self.app.push_screen(
+            RunnerScreen(self.service, self.operation, self.params, inherited=self.inherited, region=self.item_context().region)
+        )
 
     def action_runner(self) -> None:
         self.app.open_runner(self.service, self.item_context(), self.highlighted_payload())
@@ -428,7 +437,9 @@ class DetailScreen(BaseScreen):
         if oid.startswith("c"):
             action.run(self)
         else:
-            self.app.push_screen(ResultScreen(self.ctx.service, action.operation, action.params, inherited=self.ctx.params))
+            self.app.push_screen(
+                ResultScreen(self.ctx.service, action.operation, action.params, inherited=self.ctx.params, region=self.ctx.region)
+            )
 
     def action_runner(self) -> None:
         self.app.open_runner(self.ctx.service, self.ctx, self.item)
@@ -448,14 +459,18 @@ class DetailScreen(BaseScreen):
         self.query_one(StatusLine).ok(f"Calling {op}…")
         self._reload(service, op, params)
 
+    @property
+    def pinned_region(self) -> str | None:
+        return self.ctx.region
+
     def reload_for_region(self) -> None:
-        if self.reload_spec:
+        if self.reload_spec and self.ctx.region is None:
             self.action_reload()
 
     @work(thread=True, exclusive=True, exit_on_error=False, group="reload")
     def _reload(self, service: str, op: str, params: dict) -> None:
         try:
-            result = self.app.ctx.execute(service, op, params)
+            result = self.app.ctx.execute(service, op, params, region=self.ctx.region)
         except Exception as exc:  # noqa: BLE001
             self.from_thread(self.query_one(StatusLine).error, error_text(exc))
             return
@@ -479,12 +494,21 @@ class RunnerScreen(BaseScreen):
         Binding("ctrl+o", "pick", "Other operation"),
     ]
 
-    def __init__(self, service: str, operation: str, params: dict[str, Any] | None = None, *, inherited: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        service: str,
+        operation: str,
+        params: dict[str, Any] | None = None,
+        *,
+        inherited: dict[str, Any] | None = None,
+        region: str | None = None,
+    ) -> None:
         super().__init__()
         self.service = service
         self.operation = operation
         self.params = params or {}
         self.inherited = inherited or {}
+        self.pinned_region = region
 
     def crumbs_text(self) -> str:
         kind = "read-only" if is_read_only(self.operation) else "[red]WRITE[/red]"
@@ -545,7 +569,8 @@ class RunnerScreen(BaseScreen):
     def action_pick(self) -> None:
         def chosen(op: str | None) -> None:
             if op:
-                self.app.switch_screen(RunnerScreen(self.service, op, self.app.ctx.catalog.params_template(self.service, op), inherited=self.inherited))
+                params = self.app.ctx.catalog.params_template(self.service, op)
+                self.app.switch_screen(RunnerScreen(self.service, op, params, inherited=self.inherited, region=self.pinned_region))
 
         self.app.push_screen(operation_picker(self.app.ctx, self.service, self.operation), chosen)
 
@@ -570,7 +595,7 @@ class RunnerScreen(BaseScreen):
             self.app.push_screen(
                 ConfirmModal(
                     "Run a write operation?",
-                    f"{self.service}:{self.operation} in {self.app.ctx.region}\n\n{json.dumps(params, indent=2)[:800]}",
+                    f"{self.service}:{self.operation} in {self.display_region()}\n\n{json.dumps(params, indent=2)[:800]}",
                 ),
                 confirmed,
             )
@@ -585,7 +610,7 @@ class RunnerScreen(BaseScreen):
     @work(thread=True, exclusive=True, exit_on_error=False)
     def _execute(self, params: dict[str, Any]) -> None:
         try:
-            result = self.app.ctx.execute(self.service, self.operation, params)
+            result = self.app.ctx.execute(self.service, self.operation, params, region=self.pinned_region)
         except Exception as exc:  # noqa: BLE001
             self.from_thread(self._failed, error_text(exc))
         else:
@@ -600,10 +625,12 @@ class RunnerScreen(BaseScreen):
         self.query_one(StatusLine).ok(f"{self.operation} succeeded")
         if result.is_list:
             self.app.push_screen(
-                ResultScreen(self.service, self.operation, result.params, inherited=self.inherited, result=result)
+                ResultScreen(
+                    self.service, self.operation, result.params, inherited=self.inherited, result=result, region=self.pinned_region
+                )
             )
         else:
-            ctx = ItemContext(self.service, self.operation, {**self.inherited, **result.params}, None)
+            ctx = ItemContext(self.service, self.operation, {**self.inherited, **result.params}, None, region=self.pinned_region)
             reload = (self.service, self.operation, result.params) if is_read_only(self.operation) else None
             self.app.push_screen(DetailScreen(result.raw, ctx, title=self.operation, reload=reload))
 
