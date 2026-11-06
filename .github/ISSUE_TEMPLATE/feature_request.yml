@@ -1,0 +1,16 @@
+name: Feature or resource type
+description: Suggest an improvement, or a resource type the scan should find.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task, not the solution. For example, "find every unattached EBS volume across regions".
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: For a scan resource type, name the service and the List/Describe operation if you know it.

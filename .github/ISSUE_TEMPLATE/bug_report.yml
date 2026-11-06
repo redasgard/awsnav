@@ -1,0 +1,39 @@
+name: Bug report
+description: Something in awsnav doesn't work or shows the wrong thing.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please remove account IDs, ARNs, resource names and anything else private from what you paste.
+        Never paste access keys or secrets.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Service and operation
+      description: Shown in the breadcrumb line, for example `ec2 › Instances DescribeInstances()`.
+      placeholder: ec2 › DescribeInstances
+  - type: textarea
+    id: error
+    attributes:
+      label: Error text or screenshot
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      description: Output of `awsnav --version` and `pip show boto3 textual | grep -E "Name|Version"`.
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: OS and terminal
+      placeholder: macOS 15, iTerm2

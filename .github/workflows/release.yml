@@ -1,0 +1,118 @@
+# Build the awsnav wheel and sdist, generate SLSA provenance for them, and stage
+# everything in a DRAFT GitHub release. A human publishes the draft.
+#
+# Why a draft: with immutable releases, a published release's assets can never
+# be added, replaced or deleted, so the packages AND their provenance must be
+# attached BEFORE publishing.
+#
+# To release: bump `version` in pyproject.toml and awsnav/__init__.py, update
+# CHANGELOG.md, commit, push, then
+#   git tag -a vX.Y.Z -m "awsnav X.Y.Z" && git push origin vX.Y.Z
+# CI builds and creates the draft release vX.Y.Z (a tag containing "-", such as
+# v0.2.0-rc1, becomes a pre-release). Edit the notes, then Publish.
+# Run by hand (workflow_dispatch) it only builds and keeps the artifacts.
+# See docs/RELEASING.md.
+
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: python:3.13-slim
+    permissions:
+      contents: read
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches the package version
+        # A v0.2.0 tag on a tree that still says 0.1.0 would publish packages
+        # with the wrong version. Fail before building.
+        if: github.ref_type == 'tag'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          tag="${REF_NAME#v}"; tag="${tag%%-*}"
+          ver=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
+          init=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' awsnav/__init__.py)
+          if [ "$tag" != "$ver" ] || [ "$ver" != "$init" ]; then
+            echo "::error::tag $REF_NAME, pyproject.toml $ver and awsnav/__init__.py $init must agree"
+            exit 1
+          fi
+
+      - name: Test
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+          pytest -q
+
+      - name: Build wheel and sdist
+        run: |
+          pip install build
+          python -m build --outdir dist
+
+      - name: Generate provenance subjects
+        id: hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: awsnav-dist
+          path: dist/*
+
+  # Signed provenance for the packages. Not uploaded to a release here
+  # (upload-assets: false); the draft-release job attaches it before publishing.
+  provenance:
+    needs: [build]
+    permissions:
+      actions: read   # read the workflow path
+      id-token: write # sign the provenance
+      contents: write # required by the reusable workflow's own upload job
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      provenance-name: awsnav.intoto.jsonl
+      upload-assets: false
+
+  # Separate job so contents:write is scoped to just this step.
+  draft-release:
+    needs: [build, provenance]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: awsnav-dist
+          path: assets
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: assets
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ls -l assets
+          pre=()
+          case "$TAG" in *-*) pre=(--prerelease) ;; esac
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" assets/* --draft --verify-tag --generate-notes \
+              "${pre[@]}" --title "awsnav ${TAG#v}" --repo "$GITHUB_REPOSITORY"
+          fi

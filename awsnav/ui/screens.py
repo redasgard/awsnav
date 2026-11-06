@@ -411,14 +411,10 @@ class DetailScreen(BaseScreen):
         for i, rel in enumerate(related):
             oid = f"r{i}"
             self._actions[oid] = rel
-            prefix = operation_prefix(rel.operation)
-            args = ", ".join(f"{k}={format_cell(v)}" for k, v in rel.params.items())
-            label = f"{rel.operation}  [dim]{escape(args)}[/dim]"
-            if prefix in ("List", "Describe") and not rel.operation.startswith("DescribeTable"):
-                label = "▸ " + label
-            else:
-                label = "  " + label
-            options.append(Option(label, id=oid))
+            # List/Describe calls lead to more resources (▸); Get calls show one object.
+            marker = "▸" if operation_prefix(rel.operation) in ("List", "Describe") else " "
+            args = ", ".join(f"{k}={_param_text(v)}" for k, v in rel.params.items())
+            options.append(Option(f"{marker} {rel.operation}\n    [dim]{escape(args)}[/dim]", id=oid))
         options.append(Option("  [i]Run any operation of this service… (x)[/i]", id="runner"))
         olist.add_options(options)
         olist.highlighted = 0
@@ -633,6 +629,11 @@ class RunnerScreen(BaseScreen):
             ctx = ItemContext(self.service, self.operation, {**self.inherited, **result.params}, None, region=self.pinned_region)
             reload = (self.service, self.operation, result.params) if is_read_only(self.operation) else None
             self.app.push_screen(DetailScreen(result.raw, ctx, title=self.operation, reload=reload))
+
+
+def _param_text(value: Any) -> str:
+    text = value if isinstance(value, str) else json.dumps(value, default=str)
+    return format_cell(text)
 
 
 def operation_picker(ctx: AwsContext, service: str, current: str | None = None) -> PickerModal:

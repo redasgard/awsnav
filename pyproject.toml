@@ -5,10 +5,27 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "awsnav"
 version = "0.1.0"
-description = "Terminal UI for navigating every AWS service (EC2, S3, Bedrock, and newly released ones) with an access key and secret"
+description = "Every AWS service in your terminal: browse EC2, S3, Bedrock and 430+ services, and scan every region for what is running"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+authors = [{ name = "Red Asgard" }]
+keywords = ["aws", "tui", "terminal", "boto3", "textual", "cloud", "inventory", "bedrock", "s3", "ec2", "devops"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
 dependencies = [
     "boto3>=1.35",
     "textual>=1.0",
@@ -16,6 +33,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "moto[all]>=5"]
+
+[project.urls]
+Homepage = "https://github.com/redasgard/awsnav"
+Repository = "https://github.com/redasgard/awsnav"
+Issues = "https://github.com/redasgard/awsnav/issues"
+Changelog = "https://github.com/redasgard/awsnav/blob/main/CHANGELOG.md"
+Security = "https://github.com/redasgard/awsnav/security/policy"
 
 [project.scripts]
 awsnav = "awsnav.cli:main"
@@ -27,3 +51,11 @@ include = ["awsnav*"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 130
+
+[tool.ruff.lint]
+select = ["F", "E9", "B", "UP035"]
+ignore = ["B008"]

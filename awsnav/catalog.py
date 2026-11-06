@@ -14,7 +14,8 @@ import re
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 import botocore
 import botocore.session

@@ -12,6 +12,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Checkbox, DataTable, Footer, Input, Label, ProgressBar, RadioButton, RadioSet, SelectionList, Static
 
+from awsnav.formatting import format_cell
 from awsnav.scanner import FoundResource, ScanError, ScanResult, Scanner, enabled_regions
 from awsnav.ui.common import (
     BaseScreen,
@@ -245,8 +246,8 @@ class ScanResultsScreen(TableScreen):
 
     @staticmethod
     def _row(r: FoundResource) -> tuple[list[Any], str, Any]:
-        cells = [r.region, r.service, r.resource_type, r.name, r.identifier, r.state]
-        search = " ".join(str(c) for c in cells) + " " + r.arn
+        cells = [r.region, r.service, r.resource_type, format_cell(r.name), format_cell(r.identifier), r.state]
+        search = " ".join([r.region, r.service, r.resource_type, r.name, r.identifier, r.state, r.arn])
         return cells, search, r
 
     def _flush(self) -> None:

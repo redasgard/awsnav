@@ -1,0 +1,51 @@
+# Checks every push to main and every pull request: lint and the full test
+# suite on each supported Python. Tests never reach AWS: they run against moto
+# and botocore stubs, and drive the real Textual app headlessly.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    container: python:${{ matrix.python }}-slim
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]' ruff
+
+      - name: Lint
+        run: ruff check awsnav tests scripts
+
+      - name: Tests
+        run: pytest -q
+
+  audit:
+    # Known-vulnerability check of the resolved dependency set.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container: python:3.13-slim
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Supply-chain audit
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip install .
+          pip-audit --skip-editable

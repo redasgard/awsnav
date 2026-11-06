@@ -23,7 +23,8 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
-from typing import Any, Callable, Iterable
+from typing import Any
+from collections.abc import Callable, Iterable
 
 import jmespath
 from botocore.exceptions import ClientError, ConnectTimeoutError, EndpointConnectionError, NoRegionError, ReadTimeoutError
