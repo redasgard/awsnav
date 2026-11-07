@@ -43,7 +43,9 @@ jobs:
             --pattern '*.whl' --pattern '*.tar.gz' --pattern 'awsnav.intoto.jsonl'
           ls -l dist
 
-      - uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
+      # 2.7 or newer: slsa-github-generator v2.1 records provenance as DSSE log
+      # entries, which slsa-verifier 2.6 rejects.
+      - uses: slsa-framework/slsa-verifier/actions/installer@v2.7.1
 
       - name: Verify SLSA provenance
         env:
