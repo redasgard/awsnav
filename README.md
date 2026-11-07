@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/awsnav/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/awsnav?color=3775a9"></a>
   <a href="https://github.com/redasgard/awsnav/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/redasgard/awsnav/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.10 to 3.13" src="https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-3776ab">
   <img alt="Read-only by default" src="https://img.shields.io/badge/read--only-by%20default-3fb950">
@@ -36,7 +37,7 @@ code, no command syntax to remember. If boto3 can call it, awsnav can browse it.
 ## Quick start
 
 ```sh
-pipx install awsnav
+pipx install awsnav        # or: uv tool install awsnav
 awsnav
 ```
 
@@ -152,31 +153,65 @@ Bedrock replies are stubbed. They are regenerated from the real app with `script
 
 ## Install
 
-awsnav is on [PyPI](https://pypi.org/project/awsnav/). With
-[pipx](https://pipx.pypa.io/) (recommended; keeps awsnav in its own environment):
+awsnav is on [PyPI](https://pypi.org/project/awsnav/). It needs Python 3.10 or
+newer and a terminal with 256 colours, and runs wherever
+[Textual](https://textual.textualize.io/) does: Linux, macOS and Windows.
+
+| Tool | Install | Upgrade | Remove |
+| --- | --- | --- | --- |
+| [pipx](https://pipx.pypa.io/) (recommended) | `pipx install awsnav` | `pipx upgrade awsnav` | `pipx uninstall awsnav` |
+| [uv](https://docs.astral.sh/uv/) | `uv tool install awsnav` | `uv tool upgrade awsnav` | `uv tool uninstall awsnav` |
+| pip, in a virtual environment | `pip install awsnav` | `pip install -U awsnav` | `pip uninstall awsnav` |
+
+pipx and uv give awsnav its own environment and put the `awsnav` command on
+your `PATH`. Check the install with `awsnav --version`.
+
+### Try it without installing
 
 ```sh
-pipx install awsnav
-pipx upgrade awsnav          # later, for new versions
+uvx awsnav            # or: pipx run awsnav
 ```
 
-Or with pip, into a virtual environment:
+### Pick up services AWS just launched
+
+awsnav learns every service from boto3, which AWS updates several times a week.
+Upgrade boto3 inside awsnav's environment to get new services and API calls
+without waiting for an awsnav release:
 
 ```sh
-python -m venv .venv && . .venv/bin/activate
+pipx runpip awsnav install -U boto3    # pipx
+uv tool upgrade awsnav                 # uv: upgrades boto3 as well
+pip install -U boto3                   # pip, with the environment active
+```
+
+### With pip
+
+```sh
+python -m venv .venv
+. .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install awsnav
 ```
 
-To run the latest unreleased code from `main`:
-`pipx install git+https://github.com/redasgard/awsnav`.
+### Latest code from `main`
 
-Release wheels are built by CI with signed SLSA provenance; see
-[docs/RELEASING.md](https://github.com/redasgard/awsnav/blob/main/docs/RELEASING.md) to verify one. To get services AWS has
-just launched, upgrade boto3: `pipx runpip awsnav install -U boto3`.
+```sh
+pipx install git+https://github.com/redasgard/awsnav
+```
 
-Requirements: Python 3.10 or newer and a terminal with 256 colours. awsnav runs
-wherever [Textual](https://textual.textualize.io/) does: Linux, macOS and
-Windows terminals.
+### Verify a release
+
+CI builds every release and signs it with
+[SLSA](https://slsa.dev/) provenance, and the files on PyPI are those same
+files. To check one, download the wheel and `awsnav.intoto.jsonl` from the
+[release page](https://github.com/redasgard/awsnav/releases), then run
+[slsa-verifier](https://github.com/slsa-framework/slsa-verifier) 2.7 or newer:
+
+```sh
+slsa-verifier verify-artifact awsnav-0.1.0-py3-none-any.whl \
+  --provenance-path awsnav.intoto.jsonl \
+  --source-uri github.com/redasgard/awsnav --source-tag v0.1.0
+pipx install ./awsnav-0.1.0-py3-none-any.whl
+```
 
 ## Credentials and permissions
 
