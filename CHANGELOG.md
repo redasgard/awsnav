@@ -27,3 +27,5 @@ All notable changes to awsnav are listed here. The format follows
 - Region switching, command-palette service jump, help screen.
 - Login form for access key, secret and session token; also environment
   variables, profiles and custom endpoints (LocalStack).
+- Published on PyPI as `awsnav` (`pipx install awsnav`), uploaded by a
+  trusted-publishing workflow from the signed release packages.

@@ -1,0 +1,61 @@
+# Publish a release to PyPI once a person publishes its GitHub release.
+#
+# It uploads exactly the wheel and sdist that release.yml built and signed,
+# downloaded from the published GitHub release and checked against their SLSA
+# provenance first, so what lands on PyPI is what the provenance describes.
+# Authentication uses PyPI trusted publishing (OpenID Connect): no API token is
+# stored anywhere. One-time setup is described in docs/RELEASING.md.
+#
+# Pre-releases are skipped: a v0.2.0-rc1 tag builds packages versioned 0.2.0,
+# which must not reach PyPI before the real 0.2.0.
+# Run by hand (workflow_dispatch) to retry a release whose upload failed.
+
+name: pypi
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, for example v0.1.0"
+        required: true
+
+permissions: {}
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/awsnav/
+    permissions:
+      contents: read # download the release assets
+      id-token: write # trusted publishing to PyPI
+    steps:
+      - name: Download the release's packages and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern '*.whl' --pattern '*.tar.gz' --pattern 'awsnav.intoto.jsonl'
+          ls -l dist
+
+      - uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
+
+      - name: Verify SLSA provenance
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          for f in dist/*.whl dist/*.tar.gz; do
+            slsa-verifier verify-artifact "$f" \
+              --provenance-path dist/awsnav.intoto.jsonl \
+              --source-uri "github.com/$GITHUB_REPOSITORY" --source-tag "$TAG"
+          done
+          rm dist/awsnav.intoto.jsonl
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
