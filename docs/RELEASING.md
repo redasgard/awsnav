@@ -2,7 +2,32 @@
 
 Releases are built by CI and published by a person. CI stages the wheel, the
 sdist and their signed SLSA provenance in a **draft** release; publishing is the
-last, deliberate step.
+last, deliberate step. Publishing the GitHub release also publishes it to
+[PyPI](https://pypi.org/project/awsnav/).
+
+## One-time PyPI setup
+
+awsnav uploads to PyPI with
+[trusted publishing](https://docs.pypi.org/trusted-publishers/): PyPI trusts this
+repository's `pypi` workflow directly, so no API token exists anywhere.
+
+1. On GitHub, create an environment named `pypi` under **Settings >
+   Environments**. Optionally add yourself as a required reviewer, so every
+   PyPI upload waits for one more click.
+2. On PyPI, signed in as an account that should own the project, open
+   **Your account > Publishing > Add a new pending publisher** and enter:
+
+   | Field | Value |
+   | --- | --- |
+   | PyPI project name | `awsnav` |
+   | Owner | `redasgard` |
+   | Repository name | `awsnav` |
+   | Workflow name | `pypi.yml` |
+   | Environment name | `pypi` |
+
+   The first successful upload creates the project and turns the pending
+   publisher into a normal one. Afterwards, add the other maintainers as
+   owners of the PyPI project.
 
 0. CI (`.github/workflows/ci.yml`: ruff, tests on Python 3.10 to 3.13) must be
    green on the commit you are about to tag.
@@ -22,6 +47,13 @@ last, deliberate step.
    all of them attached. A tag containing `-` (`v0.2.0-rc1`) becomes a
    pre-release.
 4. Open the draft on GitHub, edit the notes, and press **Publish release**.
+5. Publishing starts the `pypi` workflow. It downloads the release's wheel and
+   sdist, verifies them against the signed provenance, and uploads them to
+   PyPI. Pre-releases are not uploaded. If the upload fails, fix the cause and
+   run the workflow by hand (**Actions > pypi > Run workflow**) with the tag.
+
+PyPI never accepts the same version twice, even after a deletion, so a mistake
+found after step 5 needs a new version number.
 
 If the draft is wrong, delete it and the tag, fix, and tag again. That is safe
 only **before** publishing; after publishing, use the next version number.

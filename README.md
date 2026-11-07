@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/awsnav.svg" width="104" alt="awsnav icon">
+  <img src="https://raw.githubusercontent.com/redasgard/awsnav/main/assets/awsnav.svg" width="104" alt="awsnav icon">
 </p>
 
 <h1 align="center">awsnav</h1>
@@ -14,7 +14,7 @@
   <a href="https://github.com/redasgard/awsnav/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/redasgard/awsnav/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.10 to 3.13" src="https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-3776ab">
   <img alt="Read-only by default" src="https://img.shields.io/badge/read--only-by%20default-3fb950">
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <a href="https://github.com/redasgard/awsnav/blob/main/LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
   <a href="#how-it-works">How it works</a>
 </p>
 
-![awsnav scanning three regions: EC2 instances, volumes, DynamoDB tables, SQS queues, IAM users and S3 buckets in one table](docs/screenshots/hero.png)
+![awsnav scanning three regions: EC2 instances, volumes, DynamoDB tables, SQS queues, IAM users and S3 buckets in one table](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/hero.png)
 
 awsnav reads the API models that ship inside boto3, so it knows every AWS
 service the moment boto3 does. EC2 and S3 work the same way as Bedrock,
@@ -36,7 +36,7 @@ code, no command syntax to remember. If boto3 can call it, awsnav can browse it.
 ## Quick start
 
 ```sh
-pipx install git+https://github.com/redasgard/awsnav
+pipx install awsnav
 awsnav
 ```
 
@@ -82,14 +82,14 @@ Find EC2, open the instances, look at one, then scan three regions and filter
 the results. Afterwards, ask a Bedrock model a question without leaving the
 terminal.
 
-![awsnav in use: filtering services, opening EC2 instances and their details, scanning three regions, chatting with a Bedrock model](docs/screenshots/demo.gif)
+![awsnav in use: filtering services, opening EC2 instances and their details, scanning three regions, chatting with a Bedrock model](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/demo.gif)
 
 ### Scan every region
 
 Pick regions and press `Ctrl+R`. The estimate tells you how many read-only
 calls the scan will make before you start.
 
-![Scan setup: region list on the left, scan options and call estimate on the right](docs/screenshots/scan-setup.png)
+![Scan setup: region list on the left, scan options and call estimate on the right](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/scan-setup.png)
 
 The standard scan covers about 120 resource types across compute, networking,
 storage, databases, analytics, AI/ML, security and developer tools, plus every
@@ -117,26 +117,26 @@ awsnav --scan --deep --workers 32 -o everything.json
 Resource lists pick their own columns: names from `Name` tags, IDs, states,
 types and dates first; ARNs and URLs last. `/` filters as you type.
 
-![EC2 instances in us-east-1 with Name tag, instance ID, type and state columns](docs/screenshots/resources.png)
+![EC2 instances in us-east-1 with Name tag, instance ID, type and state columns](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/resources.png)
 
 A resource's details show its full JSON next to everything you can do with it.
 Calls marked `▸` lead to more resources, and they chain: bucket, object, object
 tags.
 
-![Instance details: syntax-highlighted JSON on the left, related operations prefilled with the instance's IDs on the right](docs/screenshots/detail.png)
+![Instance details: syntax-highlighted JSON on the left, related operations prefilled with the instance's IDs on the right](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/detail.png)
 
 ### S3
 
-![S3 browser inside a bucket: folders first, then objects with size, last-modified time and storage class](docs/screenshots/s3.png)
+![S3 browser inside a bucket: folders first, then objects with size, last-modified time and storage class](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/s3.png)
 
 ### Bedrock
 
 Models, profiles, agents, knowledge bases, guardrails and AgentCore runtimes
 are all browsable. Any text model is one keypress away from a chat.
 
-![Bedrock foundation model details with a "Chat with this model" action at the top](docs/screenshots/bedrock-model.png)
+![Bedrock foundation model details with a "Chat with this model" action at the top](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/bedrock-model.png)
 
-![Bedrock chat playground with a system prompt, a question and the model's answer, with token counts and latency](docs/screenshots/bedrock-chat.png)
+![Bedrock chat playground with a system prompt, a question and the model's answer, with token counts and latency](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/bedrock-chat.png)
 
 ### Operation runner
 
@@ -144,29 +144,34 @@ Any operation, any parameters. Required fields are templated, values are
 prefilled from where you came from, and the AWS documentation for every
 parameter sits on the right.
 
-![Operation runner for Lambda GetFunctionConfiguration: JSON editor on the left, operation and parameter documentation on the right](docs/screenshots/runner.png)
+![Operation runner for Lambda GetFunctionConfiguration: JSON editor on the left, operation and parameter documentation on the right](https://raw.githubusercontent.com/redasgard/awsnav/main/docs/screenshots/runner.png)
 
 <sub>Screenshots show a demo account served by [moto](https://github.com/getmoto/moto), a local AWS mock;
 Bedrock replies are stubbed. They are regenerated from the real app with `scripts/` (see
-[docs/RELEASING.md](docs/RELEASING.md)).</sub>
+[docs/RELEASING.md](https://github.com/redasgard/awsnav/blob/main/docs/RELEASING.md)).</sub>
 
 ## Install
 
-With [pipx](https://pipx.pypa.io/) (recommended; keeps awsnav in its own environment):
+awsnav is on [PyPI](https://pypi.org/project/awsnav/). With
+[pipx](https://pipx.pypa.io/) (recommended; keeps awsnav in its own environment):
 
 ```sh
-pipx install git+https://github.com/redasgard/awsnav
+pipx install awsnav
+pipx upgrade awsnav          # later, for new versions
 ```
 
 Or with pip, into a virtual environment:
 
 ```sh
 python -m venv .venv && . .venv/bin/activate
-pip install git+https://github.com/redasgard/awsnav
+pip install awsnav
 ```
 
+To run the latest unreleased code from `main`:
+`pipx install git+https://github.com/redasgard/awsnav`.
+
 Release wheels are built by CI with signed SLSA provenance; see
-[docs/RELEASING.md](docs/RELEASING.md) to verify one. To get services AWS has
+[docs/RELEASING.md](https://github.com/redasgard/awsnav/blob/main/docs/RELEASING.md) to verify one. To get services AWS has
 just launched, upgrade boto3: `pipx runpip awsnav install -U boto3`.
 
 Requirements: Python 3.10 or newer and a terminal with 256 colours. awsnav runs
@@ -187,7 +192,7 @@ awsnav uses the same credentials as the AWS CLI:
 The identity is checked with STS on connect and shown in the top bar. For
 browsing and scanning, the AWS managed `ReadOnlyAccess` policy covers almost
 everything; anything it does not cover shows up as a clear permission error,
-not a crash. See [SECURITY.md](SECURITY.md) for exactly what awsnav does with
+not a crash. See [SECURITY.md](https://github.com/redasgard/awsnav/blob/main/SECURITY.md) for exactly what awsnav does with
 your keys.
 
 | Option | Meaning |
@@ -254,12 +259,12 @@ pytest -q
 The tests never touch AWS. They run against moto and botocore stubs, drive the
 real app headlessly through EC2, S3, IAM, SQS, Bedrock and the region scan, and
 check that every operation of every bundled service can be described and
-templated. See [CONTRIBUTING.md](CONTRIBUTING.md), including how to add a
+templated. See [CONTRIBUTING.md](https://github.com/redasgard/awsnav/blob/main/CONTRIBUTING.md), including how to add a
 resource type to the scan.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Made by [Red Asgard](https://github.com/redasgard).
+MIT, see [LICENSE](https://github.com/redasgard/awsnav/blob/main/LICENSE). Made by [Red Asgard](https://github.com/redasgard).
 
 <sub>awsnav is an independent open-source project. It is not affiliated with,
 endorsed by or sponsored by Amazon Web Services. AWS and the names of AWS
