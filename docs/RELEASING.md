@@ -66,7 +66,8 @@ slsa-verifier verify-artifact awsnav-X.Y.Z-py3-none-any.whl \
   --source-uri github.com/redasgard/awsnav --source-tag vX.Y.Z
 ```
 
-([slsa-verifier](https://github.com/slsa-framework/slsa-verifier).) Then
+([slsa-verifier](https://github.com/slsa-framework/slsa-verifier) 2.7 or newer;
+older versions cannot read this provenance format.) Then
 install the verified file with `pipx install ./awsnav-X.Y.Z-py3-none-any.whl`.
 
 ## Refreshing the README images
